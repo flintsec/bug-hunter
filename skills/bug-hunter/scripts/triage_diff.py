@@ -363,7 +363,7 @@ RULES: List[Rule] = [
         r"|\bcursor\.execute\s*\(|\bmysqli_query\s*\(|\bpg_query\s*\("
         r"|\btext\s*\(\s*f['\"]|\bf['\"]\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\b"
         r"|`\s*(SELECT|INSERT|UPDATE|DELETE)\b[^`]*\$\{"
-        r"|(SELECT|INSERT INTO|UPDATE|DELETE FROM)\b[^\"'\n]*[\"']\s*(\+|\.|%)\s*\$?\w"
+        r"|(SELECT|INSERT INTO|UPDATE|DELETE FROM)\b[^\"'\n]*[\"']{1,2}\s*(\+|\.|%)\s*\$?\w"
     )),
     Rule("nosql", _rx(
         r"\$where\b|\$regex\b|\$ne\b|\$expr\b|\bmapReduce\s*\(|\.find(One)?\s*\(\s*req\.(body|query|params)"
@@ -397,6 +397,7 @@ RULES: List[Rule] = [
         r"|\bres\.(sendFile|download|attachment)\s*\(|\bfs(\.promises)?\.(readFile|createReadStream|writeFile|unlink|rm|rename|copyFile)\w*\s*\("
         r"|\bfile_(get|put)_contents\s*\(|\bfopen\s*\(|(?<![.\w])unlink\s*\(|\breadfile\s*\("
         r"|(?<![.\w])open\s*\(\s*(os\.path\.join|f['\"]|request|req|user|path|filename|file_?path)"
+        r"|(?<![.\w])open\s*\(\s*['\"][^)\n]*\+"
         r"|\bZipArchive\b|\bzipfile\b|\btarfile\b|\bextractall\s*\(|\bpath\.(join|resolve)\s*\([^)]*\breq\."
     )),
     Rule("ssrf", _rx(

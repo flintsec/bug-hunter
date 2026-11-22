@@ -302,6 +302,53 @@ diff --git a/app/Http/Controllers/ProfileController.php b/app/Http/Controllers/P
         found = categories(run(diff))
         self.assertTrue({"mass-assignment", "sql"} <= found)
 
+    def test_sql_built_by_plain_concatenation(self):
+        # The query fragment quotes the value, so the string ends with '" just
+        # before the + operator. One of the most common injection shapes.
+        diff = """\
+diff --git a/db/search.py b/db/search.py
+--- a/db/search.py
++++ b/db/search.py
+@@ -0,0 +1,2 @@
++def search(name):
++    q = "SELECT * FROM users WHERE name = '" + name + "'"
+"""
+        self.assertIn("sql", categories(run(diff)))
+
+    def test_plain_string_concatenation_is_not_sql(self):
+        # A concatenated string with no SQL keyword must not trip the rule.
+        diff = """\
+diff --git a/ui/toast.js b/ui/toast.js
+--- a/ui/toast.js
++++ b/ui/toast.js
+@@ -0,0 +1 @@
++const greeting = "Hello " + name + ", welcome back!";
+"""
+        self.assertNotIn("sql", categories(run(diff)))
+
+    def test_open_with_concatenated_path_is_flagged(self):
+        # A file path built from a literal prefix plus user input: classic LFI.
+        diff = """\
+diff --git a/api/download.py b/api/download.py
+--- a/api/download.py
++++ b/api/download.py
+@@ -0,0 +1,2 @@
++def download(request):
++    return open("/data/" + request.args["name"]).read()
+"""
+        self.assertIn("files", categories(run(diff)))
+
+    def test_open_of_static_file_is_not_flagged(self):
+        # A constant path with no concatenation should not trip the files rule.
+        diff = """\
+diff --git a/app/config.py b/app/config.py
+--- a/app/config.py
++++ b/app/config.py
+@@ -0,0 +1 @@
++settings = open("config.json").read()
+"""
+        self.assertNotIn("files", categories(run(diff)))
+
 
 class SecretTests(unittest.TestCase):
     def test_vendor_secret_is_redacted(self):
