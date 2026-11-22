@@ -349,6 +349,59 @@ diff --git a/app/config.py b/app/config.py
 """
         self.assertNotIn("files", categories(run(diff)))
 
+    def test_php_variable_interpolated_into_sql(self):
+        diff = """\
+diff --git a/sqli.php b/sqli.php
+--- a/sqli.php
++++ b/sqli.php
+@@ -0,0 +1,2 @@
++$id = $_GET['id'];
++$query = "SELECT first_name, last_name FROM users WHERE user_id = '$id';";
+"""
+        self.assertIn("sql", categories(run(diff)))
+
+    def test_ruby_interpolated_where_clause(self):
+        diff = """\
+diff --git a/app/models/user.rb b/app/models/user.rb
+--- a/app/models/user.rb
++++ b/app/models/user.rb
+@@ -0,0 +1 @@
++  User.where("name = '#{name}'")
+"""
+        self.assertIn("sql", categories(run(diff)))
+
+    def test_numbered_placeholder_is_not_sql(self):
+        # Postgres positional parameters are the safe, parameterised form.
+        diff = """\
+diff --git a/db.py b/db.py
+--- a/db.py
++++ b/db.py
+@@ -0,0 +1 @@
++cur.execute("SELECT * FROM users WHERE id = $1 AND org = $2", [uid, org])
+"""
+        self.assertNotIn("sql", categories(run(diff)))
+
+    def test_ui_string_with_keyword_is_not_sql(self):
+        # A user-facing message that merely contains an uppercase keyword.
+        diff = """\
+diff --git a/ui/banner.js b/ui/banner.js
+--- a/ui/banner.js
++++ b/ui/banner.js
+@@ -0,0 +1 @@
++const msg = `UPDATE available in ${version}, please refresh`;
+"""
+        self.assertNotIn("sql", categories(run(diff)))
+
+    def test_safe_where_without_interpolation_is_not_sql(self):
+        diff = """\
+diff --git a/app/models/post.rb b/app/models/post.rb
+--- a/app/models/post.rb
++++ b/app/models/post.rb
+@@ -0,0 +1 @@
++  Post.where("status = 'active'").order(:created_at)
+"""
+        self.assertNotIn("sql", categories(run(diff)))
+
 
 class SecretTests(unittest.TestCase):
     def test_vendor_secret_is_redacted(self):

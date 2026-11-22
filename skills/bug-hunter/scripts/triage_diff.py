@@ -362,8 +362,13 @@ RULES: List[Rule] = [
         r"|\$(query|execute)Raw(Unsafe)?\b|\bsequelize\.(query|literal)\s*\(|\bknex\.raw\s*\(|\.raw\s*\(|\.extra\s*\("
         r"|\bcursor\.execute\s*\(|\bmysqli_query\s*\(|\bpg_query\s*\("
         r"|\btext\s*\(\s*f['\"]|\bf['\"]\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\b"
-        r"|`\s*(SELECT|INSERT|UPDATE|DELETE)\b[^`]*\$\{"
         r"|(SELECT|INSERT INTO|UPDATE|DELETE FROM)\b[^\"'\n]*[\"']{1,2}\s*(\+|\.|%)\s*\$?\w"
+        # value interpolated straight into a SQL string: PHP "$id", JS "${id}", Ruby "#{id}".
+        # Needs a real query shape so UI strings like "UPDATE available ${v}" stay clean, and
+        # $A-Za-z excludes safe numbered placeholders ($1, $2).
+        r"|(SELECT\b[^\n]*\bFROM\b|UPDATE\b[^\n]*\bSET\b|DELETE\s+FROM\b|INSERT\s+INTO\b)[^\n]*(\$\{|#\{|\$[A-Za-z_])"
+        # a query builder method handed an interpolated string (mostly Ruby/ActiveRecord).
+        r"|\.(where|having|order|group|find_by_sql|exec_query|select_all|execute|sanitize_sql)\s*\(\s*[\"'][^\n]*(#\{|\$\{)"
     )),
     Rule("nosql", _rx(
         r"\$where\b|\$regex\b|\$ne\b|\$expr\b|\bmapReduce\s*\(|\.find(One)?\s*\(\s*req\.(body|query|params)"
