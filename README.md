@@ -31,12 +31,10 @@ The skill loads on its own when a task touches something sensitive: auth, permis
 
 When it loads, the agent works in five steps, after deciding how much security the change actually needs.
 
-```mermaid
-flowchart LR
-    M["Map"]:::s --> A["Abuse cases"]:::s --> B["Build"]:::s --> S["Self-attack"]:::s --> R["Report"]:::s
-    classDef s fill:none,stroke:none;
-    linkStyle default stroke:#8d94a6,stroke-width:1px;
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/workflow-dark.png">
+  <img alt="Map → Abuse cases → Build → Self-attack → Report" src="assets/workflow-light.png">
+</picture>
 
 That full pipeline runs only for Level 2 changes. Level 1 gets secure defaults with no report, and trivial changes get nothing. The report never claims the code is secure: it lists what was checked, how it is proven, and what risk remains.
 

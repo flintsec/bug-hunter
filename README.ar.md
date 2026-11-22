@@ -31,12 +31,10 @@
 
 وعندما تحمل، يعمل الوكيل في خمس خطوات، بعد أن يقرر كم من الأمان يحتاجه التغيير فعلا.
 
-```mermaid
-flowchart LR
-    M["Map"]:::s --> A["Abuse cases"]:::s --> B["Build"]:::s --> S["Self-attack"]:::s --> R["Report"]:::s
-    classDef s fill:none,stroke:none;
-    linkStyle default stroke:#8d94a6,stroke-width:1px;
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/workflow-dark.png">
+  <img alt="Map → Abuse cases → Build → Self-attack → Report" src="assets/workflow-light.png">
+</picture>
 
 هذا المسار الكامل يعمل فقط لتغييرات المستوى الثاني. المستوى الأول يأخذ إعدادات آمنة بلا تقرير، والتغييرات البسيطة لا تأخذ شيئا. والتقرير لا يقول أبدا إن الكود آمن: يذكر ما فُحص، وكيف أُثبت، وما بقي من مخاطر.
 
