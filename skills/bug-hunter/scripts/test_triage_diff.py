@@ -518,5 +518,69 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result["files"][0]["status"], "added")
 
 
+def _one_file_diff(path: str, code: str) -> str:
+    lines = code.split("\n")
+    return (f"diff --git a/{path} b/{path}\n--- /dev/null\n+++ b/{path}\n"
+            f"@@ -0,0 +1,{len(lines)} @@\n") + "".join("+" + ln + "\n" for ln in lines)
+
+
+class CrossLanguageTests(unittest.TestCase):
+    """Go / Java / C# / Ruby idioms that older PHP/Node/Python-centric rules missed."""
+
+    POSITIVE = [
+        # SQL built by a format helper or C# interpolation.
+        ("sql", "a.go",   r'db.Query(fmt.Sprintf("SELECT * FROM users WHERE id = %s", id))'),
+        ("sql", "a.java", r'stmt.executeQuery(String.format("SELECT * FROM users WHERE id = %s", id));'),
+        ("sql", "a.cs",   r'cmd.CommandText = $"SELECT * FROM Users WHERE Id = {id}";'),
+        # real WebGoat shape: an inner 'literal' sits before the concatenation point.
+        ("sql", "a.java", r'''query = "SELECT * FROM user_data WHERE last_name = '" + accountName + "'";'''),
+        # command execution.
+        ("command-exec", "a.go",   r'exec.Command("sh", "-c", userCmd).Run()'),
+        ("command-exec", "a.java", r'Runtime.getRuntime().exec("ping " + host);'),
+        ("command-exec", "a.java", r'new ProcessBuilder("sh", "-c", cmd).start();'),
+        ("command-exec", "a.cs",   r'Process.Start("cmd.exe", "/c " + input);'),
+        ("command-exec", "a.rb",   r'out = `ls #{dir}`'),
+        ("command-exec", "a.rb",   r'%x(cat #{f})'),
+        # outbound HTTP / SSRF surface.
+        ("outbound-http", "a.go",   r'resp, _ := http.Get(userURL)'),
+        ("outbound-http", "a.java", r'InputStream in = new URL(userUrl).openStream();'),
+        ("outbound-http", "a.cs",   r'var resp = await httpClient.GetAsync(userUrl);'),
+        ("outbound-http", "a.php",  r"curl_setopt($ch, CURLOPT_URL, $_GET['url']);"),
+        # deserialization.
+        ("deserialization", "a.java", r'Object o = new XMLDecoder(in).readObject();'),
+        ("deserialization", "a.rb",   r'obj = Marshal.load(data)'),
+        ("deserialization", "a.cs",   r'var o = new BinaryFormatter().Deserialize(stream);'),
+        # weak crypto.
+        ("weak-crypto", "a.java", r'MessageDigest md = MessageDigest.getInstance("MD5");'),
+        ("weak-crypto", "a.java", r'Cipher c = Cipher.getInstance("AES/ECB/PKCS5Padding");'),
+        # files / path traversal and open redirect in languages we had missed.
+        ("files", "a.java",  r'File f = new File(baseDir, request.getParameter("name"));'),
+        ("redirect", "a.php", 'header("Location: " . $_GET[\'url\']);'),
+        ("xss-sink", "a.js",  r'$("#out").html(userInput);'),
+        # hardcoded secret in a prefixed variable name.
+        ("secret", "a.rb",    r'db_password = "pR0dPassw0rd9xQ"'),
+    ]
+
+    NEGATIVE = [  # (forbidden category, file, safe code)
+        ("sql", "a.java", r'PreparedStatement ps = conn.prepareStatement("SELECT * FROM u WHERE id = ?");'),
+        ("sql", "a.php",  r'$stmt = $pdo->prepare("SELECT * FROM u WHERE id = ?"); $stmt->execute([$id]);'),
+        ("sql", "a.go",   r'db.Query("SELECT * FROM users WHERE id = $1", id)'),
+        ("sql", "a.cs",   r'cmd.CommandText = "SELECT * FROM Users WHERE Id = @id";'),
+        ("sql", "a.js",   r'const msg = `UPDATE available in ${version}, please refresh`;'),
+        ("deserialization", "a.cs", r'var o = JsonSerializer.Deserialize<Dto>(s);'),
+        ("secret", "a.py",          r'update_password_url = "https://acme.io/reset-flow-page"'),
+    ]
+
+    def test_positives(self):
+        for want, path, code in self.POSITIVE:
+            with self.subTest(want=want, code=code):
+                self.assertIn(want, categories(run(_one_file_diff(path, code))))
+
+    def test_negatives(self):
+        for forbid, path, code in self.NEGATIVE:
+            with self.subTest(forbid=forbid, code=code):
+                self.assertNotIn(forbid, categories(run(_one_file_diff(path, code))))
+
+
 if __name__ == "__main__":
     unittest.main()

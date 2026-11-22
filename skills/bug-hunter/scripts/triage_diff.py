@@ -362,11 +362,20 @@ RULES: List[Rule] = [
         r"|\$(query|execute)Raw(Unsafe)?\b|\bsequelize\.(query|literal)\s*\(|\bknex\.raw\s*\(|\.raw\s*\(|\.extra\s*\("
         r"|\bcursor\.execute\s*\(|\bmysqli_query\s*\(|\bpg_query\s*\("
         r"|\btext\s*\(\s*f['\"]|\bf['\"]\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\b"
-        r"|(SELECT|INSERT INTO|UPDATE|DELETE FROM)\b[^\"'\n]*[\"']{1,2}\s*(\+|\.|%)\s*\$?\w"
+        # string concatenated onto a query. [^\n]*? (not [^"'\n]) lets an inner quoted literal
+        # sit before the join, e.g.  "... last_name = 'John' and x = '" + var  — the common
+        # real-world shape; the closing "+ / . / %" then an identifier is the unsafe signal.
+        r"|(SELECT|INSERT INTO|UPDATE|DELETE FROM)\b[^\n]*?[\"']\s*(\+|\.|%)\s*\$?\w"
         # value interpolated straight into a SQL string: PHP "$id", JS "${id}", Ruby "#{id}".
-        # Needs a real query shape so UI strings like "UPDATE available ${v}" stay clean, and
-        # $A-Za-z excludes safe numbered placeholders ($1, $2).
-        r"|(SELECT\b[^\n]*\bFROM\b|UPDATE\b[^\n]*\bSET\b|DELETE\s+FROM\b|INSERT\s+INTO\b)[^\n]*(\$\{|#\{|\$[A-Za-z_])"
+        # Needs a real query shape so UI strings like "UPDATE available ${v}" stay clean;
+        # [^"\n] keeps the match inside the one string, so a trailing bound parameter such as
+        # prepare("..?"); $stmt->execute([$id]) is not a false hit; $A-Za-z excludes safe
+        # numbered placeholders ($1, $2).
+        r"|(SELECT\b[^\"\n]*\bFROM\b|UPDATE\b[^\"\n]*\bSET\b|DELETE\s+FROM\b|INSERT\s+INTO\b)[^\"\n]*(\$\{|#\{|\$[A-Za-z_])"
+        # C# interpolated string: $"... SELECT .. {id}"
+        r"|\$@?\"[^\"\n]*(SELECT\b[^\"\n]*\bFROM\b|UPDATE\b[^\"\n]*\bSET\b|DELETE\s+FROM\b|INSERT\s+INTO\b)[^\"\n]*\{"
+        # SQL string handed to a format helper: Go fmt.Sprintf, Java String.format, Rust format!
+        r"|\b(Sprintf|String\.format|format!)\s*\(\s*[\"'][^\"'\n]*(SELECT\b[^\"'\n]*\bFROM\b|UPDATE\b[^\"'\n]*\bSET\b|DELETE\s+FROM\b|INSERT\s+INTO\b)"
         # a query builder method handed an interpolated string (mostly Ruby/ActiveRecord).
         r"|\.(where|having|order|group|find_by_sql|exec_query|select_all|execute|sanitize_sql)\s*\(\s*[\"'][^\n]*(#\{|\$\{)"
     )),
@@ -379,11 +388,14 @@ RULES: List[Rule] = [
         r"|\bsubprocess\.(run|call|Popen|check_output|check_call)\s*\(|\bos\.(system|popen|exec\w*|spawn\w*)\s*\("
         r"|\bchild_process\b|\b(execSync|execFile|execFileSync|spawnSync)\s*\(|(?<![.\w])spawn\s*\("
         r"|\bProcess::(run|start|pipe|fromShellCommandline)\b|new\s+Process\s*\(|\bshell\s*=\s*True|\bshell\s*:\s*true"
+        # Go os/exec, Java Runtime/ProcessBuilder, .NET Process, Ruby backticks and %x().
+        r"|\bexec\.Command(Context)?\s*\(|Runtime\.getRuntime\(\)\.exec\s*\(|\bnew\s+ProcessBuilder\b"
+        r"|\bProcess\.Start\s*\(|\bProcessStartInfo\b|`[^`\n]*#\{[^`\n]*`|%x[\(\[\{]"
     )),
     Rule("xss-sink", _rx(
         r"\{!!|dangerouslySetInnerHTML|\bv-html\b|\|\s*safe\b|\bmark_safe\s*\(|\b(inner|outer)HTML\s*\+?="
         r"|insertAdjacentHTML\s*\(|document\.write(ln)?\s*\(|\bsrcdoc\b|\{\{\{|\bnew\s+HtmlString\b|\bMarkup\s*\("
-        r"|\{@html\b|bypassSecurityTrust\w*\s*\("
+        r"|\{@html\b|bypassSecurityTrust\w*\s*\(|\)\s*\.html\s*\(\s*[A-Za-z_$]"
     )),
     Rule("dynamic-code", _rx(
         r"render_template_string\s*\(|Blade::render\s*\(|createTemplate\s*\(|Handlebars\.compile\s*\("
@@ -394,6 +406,8 @@ RULES: List[Rule] = [
         r"\bunserialize\s*\(|\bpickle\.loads?\s*\(|\bcPickle\b|\bmarshal\.loads?\s*\(|\byaml\.(unsafe_)?load\s*\((?![^)]*SafeLoader)"
         r"|\bjsonpickle\.decode\s*\(|ObjectInputStream|\bnode-serialize\b|\betree\.(parse|fromstring)\s*\("
         r"|xml\.dom\.minidom|simplexml_load_(string|file)\s*\(|LIBXML_NOENT|\bnew\s+DOMDocument\b"
+        # Java XMLDecoder, Ruby Marshal/YAML.load, .NET legacy formatters.
+        r"|\bXMLDecoder\b|\bMarshal\.load\b|\bYAML\.load\b|\bBinaryFormatter\b|\bNetDataContractSerializer\b|\bLosFormatter\b|\bSoapFormatter\b"
     )),
     Rule("files", _rx(
         r"\$request->(file|hasFile)\s*\(|\bUploadedFile\b|move_uploaded_file\s*\(|\$_FILES\b"
@@ -404,6 +418,9 @@ RULES: List[Rule] = [
         r"|(?<![.\w])open\s*\(\s*(os\.path\.join|f['\"]|request|req|user|path|filename|file_?path)"
         r"|(?<![.\w])open\s*\(\s*['\"][^)\n]*\+"
         r"|\bZipArchive\b|\bzipfile\b|\btarfile\b|\bextractall\s*\(|\bpath\.(join|resolve)\s*\([^)]*\breq\."
+        # Java/.NET file access built from request input.
+        r"|\bnew\s+File\s*\([^)\n]*(request|getParameter|getPart|user[A-Z])|\b(Files|Paths)\.\w+\s*\([^)\n]*(request|getParameter|user[A-Z])"
+        r"|\bPath\.Combine\s*\([^)\n]*(Request|user[A-Z])|\bFile\.(ReadAll|WriteAll|Open|Copy|Move|Delete)\w*\s*\([^)\n]*(Request|user[A-Z])"
     )),
     Rule("ssrf", _rx(
         r"(\bfetch|\baxios(\.\w+)?|\bgot(\.\w+)?|\brequests\.\w+|\bhttpx\.\w+|\burlopen|Http::\w+|\bcurl_init"
@@ -415,10 +432,14 @@ RULES: List[Rule] = [
         r"|\bGuzzleHttp\b|\bcurl_(init|exec)\s*\(|\brequests\.(get|post|put|patch|delete|head|request|Session)\b"
         r"|\bhttpx\.(get|post|put|patch|delete|request|Client|AsyncClient)\b|\burllib\.request\b|\burlopen\s*\("
         r"|\baiohttp\b|(?<![.\w])fetch\s*\(|\baxios(\.\w+)?\s*\(|\bgot(\.\w+)?\s*\(|\bhttps?\.(get|request)\s*\(|\bundici\b"
+        # Go net/http, Java URL/HttpClient, .NET HttpClient/WebClient, PHP curl_setopt(CURLOPT_URL).
+        r"|\bhttp\.(Get|Post|Head|PostForm|NewRequest\w*)\s*\(|\.openStream\s*\(|\.openConnection\s*\(|\bHttpURLConnection\b"
+        r"|HttpRequest\.newBuilder|\bWebClient\b|\.(GetAsync|PostAsync|PutAsync|DeleteAsync|SendAsync)\s*\(|\bHttpClient\b|\bcurl_setopt\s*\([^)\n]*CURLOPT_URL"
     )),
     Rule("redirect", _rx(
         r"(\bredirect(_to|To)?|\bres\.redirect|Redirect::to|redirect\(\)->(to|away)|\bRedirectResponse)\s*\(\s*(?=[^)'\"`\s])[^)]*"
-        r"\b(next|return\w*|redirect\w*|continue|callback|url|to|dest\w*|target|back_?url)\b|->away\s*\(",
+        r"\b(next|return\w*|redirect\w*|continue|callback|url|to|dest\w*|target|back_?url)\b|->away\s*\("
+        r"|header\s*\(\s*['\"]\s*Location:[^)\n]*\$_(GET|POST|REQUEST|SERVER)",
         ignore_case=True,
     )),
     Rule("webhook", _rx(
@@ -440,6 +461,8 @@ RULES: List[Rule] = [
         r"|MODE_ECB|-ecb['\"]|\bverify\s*=\s*False|rejectUnauthorized\s*:\s*false|CURLOPT_SSL_VERIFY(PEER|HOST)\s*(,|=>)\s*(false|0)"
         r"|NODE_TLS_REJECT_UNAUTHORIZED|algorithms\s*[=:]\s*\[\s*['\"]none['\"]|['\"]alg['\"]\s*:\s*['\"]none['\"]"
         r"|verify_signature['\"]?\s*:\s*False|ignoreExpiration\s*:\s*true|\bjwt\.decode\s*\(\s*\w+\s*\)"
+        # Java/.NET weak hash and cipher choices.
+        r"|getInstance\s*\(\s*['\"](MD5|SHA-?1|MD4|MD2|RC4|RC2|DES|DESede|Blowfish)\b|getInstance\s*\(\s*['\"][^'\"]*ECB"
     )),
     Rule("weak-random", _rx(
         r"\bMath\.random\s*\(|(?<![.\w])(mt_)?rand\s*\(|\buniqid\s*\(|\brandom\.(random|randint|choice|choices|randrange)\s*\("
@@ -491,7 +514,9 @@ VENDOR_SECRETS: List[Tuple[str, Pattern[str]]] = [
 ]
 JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}")
 ASSIGNED_SECRET_RE = re.compile(
-    r"\b(api[_-]?key|secret([_-]?key)?|client[_-]?secret|password|passwd|auth[_-]?token|access[_-]?token"
+    # An optional snake/kebab prefix lets DB_PASSWORD, db_password, admin_api_key match while
+    # the keyword must still end the identifier (\b), so update_password_url does not.
+    r"\b(?:[A-Za-z][A-Za-z0-9]*[_-])?(api[_-]?key|secret([_-]?key)?|client[_-]?secret|password|passwd|auth[_-]?token|access[_-]?token"
     r"|refresh[_-]?token|private[_-]?key)\b[\"']?\s*(=>|:=|[:=])\s*[\"']([^\"'\s]{8,})[\"']",
     re.IGNORECASE,
 )
