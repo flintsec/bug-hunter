@@ -32,26 +32,11 @@ The skill loads on its own when a task touches something sensitive: auth, permis
 When it loads, the agent works in five steps, after deciding how much security the change actually needs.
 
 ```mermaid
-flowchart TB
-    A(["A change touches the code"]) --> B{"How sensitive?"}
-    B -->|"Level 0: styling, copy, docs"| Z(["Do the task. Nothing added."])
-    B -->|"Level 1: user input or rendering"| Y(["Apply secure defaults. No report."])
-    B -->|"Level 2: auth, money, uploads, webhooks, SQL, AI"| S1
-
-    subgraph L2 ["Level 2 workflow"]
-        direction TB
-        S1["1 · Map<br/>assets, actors, trust boundaries"]
-        S2["2 · Abuse cases<br/>3 to 8 concrete attacks"]
-        S3["3 · Build<br/>secure defaults that close them"]
-        S4["4 · Self-attack<br/>re-read the diff, add tests"]
-        S5["5 · Report<br/>what is checked, what is open"]
-        S1 --> S2 --> S3 --> S4 --> S5
-    end
-
-    S5 --> R(["A short report. It never says 'secure'."])
+flowchart LR
+    M["Map"] --> A["Abuse cases"] --> B["Build"] --> S["Self-attack"] --> R["Report"]
 ```
 
-The report never claims the code is secure. It lists what was checked, how it is proven, and what risk remains.
+That full pipeline runs only for Level 2 changes. Level 1 gets secure defaults with no report, and trivial changes get nothing. The report never claims the code is secure: it lists what was checked, how it is proven, and what risk remains.
 
 ## Install
 

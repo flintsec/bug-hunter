@@ -32,26 +32,11 @@
 وعندما تحمل، يعمل الوكيل في خمس خطوات، بعد أن يقرر كم من الأمان يحتاجه التغيير فعلا.
 
 ```mermaid
-flowchart TB
-    A(["A change touches the code"]) --> B{"How sensitive?"}
-    B -->|"Level 0: styling, copy, docs"| Z(["Do the task. Nothing added."])
-    B -->|"Level 1: user input or rendering"| Y(["Apply secure defaults. No report."])
-    B -->|"Level 2: auth, money, uploads, webhooks, SQL, AI"| S1
-
-    subgraph L2 ["Level 2 workflow"]
-        direction TB
-        S1["1 · Map<br/>assets, actors, trust boundaries"]
-        S2["2 · Abuse cases<br/>3 to 8 concrete attacks"]
-        S3["3 · Build<br/>secure defaults that close them"]
-        S4["4 · Self-attack<br/>re-read the diff, add tests"]
-        S5["5 · Report<br/>what is checked, what is open"]
-        S1 --> S2 --> S3 --> S4 --> S5
-    end
-
-    S5 --> R(["A short report. It never says 'secure'."])
+flowchart LR
+    M["Map"] --> A["Abuse cases"] --> B["Build"] --> S["Self-attack"] --> R["Report"]
 ```
 
-التقرير لا يقول أبدا إن الكود آمن. يذكر ما تم فحصه، وكيف أُثبت، وما بقي من مخاطر.
+هذا المسار الكامل يعمل فقط لتغييرات المستوى الثاني. المستوى الأول يأخذ إعدادات آمنة بلا تقرير، والتغييرات البسيطة لا تأخذ شيئا. والتقرير لا يقول أبدا إن الكود آمن: يذكر ما فُحص، وكيف أُثبت، وما بقي من مخاطر.
 
 ## التثبيت
 
