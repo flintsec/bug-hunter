@@ -33,7 +33,9 @@ When it loads, the agent works in five steps, after deciding how much security t
 
 ```mermaid
 flowchart LR
-    M["Map"] --> A["Abuse cases"] --> B["Build"] --> S["Self-attack"] --> R["Report"]
+    M["Map"]:::s --> A["Abuse cases"]:::s --> B["Build"]:::s --> S["Self-attack"]:::s --> R["Report"]:::s
+    classDef s fill:none,stroke:none;
+    linkStyle default stroke:#8d94a6,stroke-width:1px;
 ```
 
 That full pipeline runs only for Level 2 changes. Level 1 gets secure defaults with no report, and trivial changes get nothing. The report never claims the code is secure: it lists what was checked, how it is proven, and what risk remains.
