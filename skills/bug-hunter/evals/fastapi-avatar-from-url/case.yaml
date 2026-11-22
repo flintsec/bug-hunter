@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: fastapi-avatar-from-url
+expected_outcome: |
+  An authenticated endpoint that accepts only http and https URLs, resolves the
+  host and refuses private, loopback, link-local and metadata addresses
+  (including 169.254.169.254), validates or disables redirects, sets a timeout
+  and a maximum download size, checks that the content is an image, and never
+  returns the fetched body or detailed network errors to the caller. Tests or
+  a test plan show internal addresses are rejected.

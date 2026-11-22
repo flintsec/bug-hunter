@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: express-stripe-webhook
+expected_outcome: |
+  A webhook route that receives the raw body, verifies the Stripe-Signature
+  header with the signing secret from the environment, rejects invalid
+  requests before touching any order, and processes each event once. The
+  registration in app.js keeps the global JSON parser from consuming the raw
+  body. The answer ends with short security notes covering forged and
+  replayed events.

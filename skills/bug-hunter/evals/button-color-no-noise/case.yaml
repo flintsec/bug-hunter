@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: button-color-no-noise
+expected_outcome: |
+  The Save button classes are changed to bg-emerald-600 and
+  hover:bg-emerald-700, nothing else in the component changes, and the answer
+  is a short confirmation with no security report, abuse cases, or threat
+  model. This case checks that the skill stays quiet on level 0 work.
+context:
+  scaffold_script: place-files.sh

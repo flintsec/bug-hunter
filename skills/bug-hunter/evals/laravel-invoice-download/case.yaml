@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: laravel-invoice-download
+expected_outcome: |
+  A route inside the auth middleware and a controller action that returns the
+  invoice PDF only when the invoice belongs to the authenticated user (query
+  scoped through the user or a policy check), served from non-public storage.
+  A feature test proves that another user gets 403 or 404. The answer ends with
+  a short security section listing concrete abuse cases and residual risk, and
+  never claims the code is secure.
